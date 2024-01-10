@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 /*
   Copyright (c) 2023, Manticore Software LTD (https://manticoresearch.com)
@@ -8,44 +10,114 @@
   version. You should have received a copy of the GPL license along with this
   program; if you did not, you can find it at http://www.gnu.org/
 */
-namespace Manticoresearch\Buddy\Plugin\Template;
 
-use Manticoresearch\Buddy\Core\Plugin\BaseHandler;
+namespace Manticoresearch\Buddy\Plugin\KnnDocJoiner;
+
+use Manticoresearch\Backup\Lib\ManticoreClient;
+use Manticoresearch\Buddy\Core\Error\ManticoreSearchClientError;
+use Manticoresearch\Buddy\Core\Error\ManticoreSearchResponseError;
+use Manticoresearch\Buddy\Core\ManticoreSearch\Client;
+use Manticoresearch\Buddy\Core\Plugin\BaseHandlerWithClient;
 use Manticoresearch\Buddy\Core\Task\Task;
 use Manticoresearch\Buddy\Core\Task\TaskResult;
 use RuntimeException;
 
-final class Handler extends BaseHandler {
-	/**
-	 * Initialize the executor
-	 *
-	 * @param Payload $payload
-	 * @return void
-	 */
-	public function __construct(public Payload $payload) {
-	}
+final class Handler extends BaseHandlerWithClient
+{
+    /**
+     * Initialize the executor
+     *
+     * @param  Payload  $payload
+     * @return void
+     */
+    public function __construct(public Payload $payload)
+    {
+    }
 
-  /**
-	 * Process the request
-	 *
-	 * @return Task
-	 * @throws RuntimeException
-	 */
-	public function run(): Task {
-		// TODO: your logic goes into closure and should return TaskResult as response
-		$taskFn = static function (): TaskResult {
-			return TaskResult::none();
-		};
+    /**
+     * Process the request
+     *
+     * @return Task
+     * @throws RuntimeException
+     */
+    public function run(): Task
+    {
+        $taskFn = static function (Payload $payload, Client $manticoreClient): TaskResult {
+            $knnField = self::getKnnField($manticoreClient, $payload);
+            $queryVector = self::getQueryVectorValue($manticoreClient, $payload, $knnField);
+            return TaskResult::raw(self::getKnnResult($manticoreClient, $payload, $queryVector));
+        };
 
-		return Task::create(
-			$taskFn, []
-		)->run();
-	}
+        return Task::create(
+            $taskFn, [$this->payload, $this->manticoreClient]
+        )->run();
+    }
 
-	/**
-	 * @return array<string>
-	 */
-	public function getProps(): array {
-		return [];
-	}
+    /**
+     * @throws ManticoreSearchClientError
+     * @throws ManticoreSearchResponseError
+     */
+    private function getKnnField(Client $manticoreClient, Payload $payload):string{
+        $descResult = $manticoreClient
+            ->sendRequest("DESC ".$payload->table)
+            ->getResult();
+
+        $knnField = false;
+
+        if (is_array($descResult) && !empty($descResult[0]['data'])) {
+            foreach ($descResult[0]['data'] as $field) {
+                if ($field['Type'] === 'float_vector') {
+                    $knnField = $field['Field'];
+                }
+            }
+
+            if (!$knnField) {
+                throw ManticoreSearchResponseError::create('Table '.$payload->table.' didnt have any KNN fields');
+            }
+        } else {
+            throw ManticoreSearchClientError::create('Manticore didn\'t answer');
+        }
+
+        return $knnField;
+    }
+
+    private function getQueryVectorValue(Client $manticoreClient, Payload $payload, string $knnField):string{
+        $document = $manticoreClient
+            ->sendRequest("SELECT * FROM ".$payload->table." WHERE id = ".$payload->docId)
+            ->getResult();
+
+        if (is_array($document) && !empty($document[0]['data'])) {
+            return $document[0]['data'][0][$knnField];
+        } else {
+            throw ManticoreSearchResponseError::create(
+                'Specified id ('.$payload->docId.') not found in table '.$payload->table
+            );
+        }
+    }
+
+
+    /**
+     * @param  Client  $manticoreClient
+     * @param  Payload  $payload
+     * @param  string  $queryVector
+     * @return array <string, string>
+     * @throws ManticoreSearchClientError
+     */
+    private function getKnnResult(Client $manticoreClient, Payload $payload, string $queryVector): array
+    {
+        $query = $payload->select."FROM ".$payload->table." WHERE knn (".$payload->field.", $payload->k, ($queryVector))";
+        $result = $manticoreClient
+            ->sendRequest($query)
+            ->getResult();
+
+        if (is_array($result[0])) {
+            foreach ($result[0]['data'] as $k => $v) {
+                if ($v['id'] === (int)$payload->docId) {
+                    unset($result[0]['data'][$k]);
+                }
+            }
+        }
+
+        return $result;
+    }
 }

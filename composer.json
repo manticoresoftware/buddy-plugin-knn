@@ -1,11 +1,11 @@
 {
-	"name": "manticoresoftware/buddy-plugin-template",
-	"description": "The Buddy template handler plugin",
+	"name": "manticoresoftware/buddy-plugin-knn-doc-joiner",
+	"description": "The Buddy KNN doc joiner plugin",
 	"type": "library",
 	"license": "GPL-2.0-or-later",
 	"autoload": {
 		"psr-4": {
-			"Manticoresearch\\Buddy\\Plugin\\Template\\": "src/"
+			"Manticoresearch\\Buddy\\Plugin\\KnnDocJoiner\\": "src/"
 		}
 	},
 	"authors": [
