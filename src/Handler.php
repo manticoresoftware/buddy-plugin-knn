@@ -1,6 +1,4 @@
-<?php
-
-declare(strict_types=1);
+<?php declare(strict_types=1);
 
 /*
   Copyright (c) 2023, Manticore Software LTD (https://manticoresearch.com)
@@ -13,7 +11,6 @@ declare(strict_types=1);
 
 namespace Manticoresearch\Buddy\Plugin\KnnDocJoiner;
 
-use Manticoresearch\Backup\Lib\ManticoreClient;
 use Manticoresearch\Buddy\Core\Error\ManticoreSearchClientError;
 use Manticoresearch\Buddy\Core\Error\ManticoreSearchResponseError;
 use Manticoresearch\Buddy\Core\ManticoreSearch\Client;
@@ -24,100 +21,101 @@ use RuntimeException;
 
 final class Handler extends BaseHandlerWithClient
 {
-    /**
-     * Initialize the executor
-     *
-     * @param  Payload  $payload
-     * @return void
-     */
-    public function __construct(public Payload $payload)
-    {
-    }
+	/**
+	 * Initialize the executor
+	 *
+	 * @param  Payload  $payload
+	 * @return void
+	 */
+	public function __construct(public Payload $payload) {
+	}
 
-    /**
-     * Process the request
-     *
-     * @return Task
-     * @throws RuntimeException
-     */
-    public function run(): Task
-    {
-        $taskFn = static function (Payload $payload, Client $manticoreClient): TaskResult {
-            $knnField = self::getKnnField($manticoreClient, $payload);
-            $queryVector = self::getQueryVectorValue($manticoreClient, $payload, $knnField);
-            return TaskResult::raw(self::getKnnResult($manticoreClient, $payload, $queryVector));
-        };
+	/**
+	 * Process the request
+	 *
+	 * @return Task
+	 * @throws RuntimeException
+	 */
+	public function run(): Task {
+		$taskFn = static function (Payload $payload, Client $manticoreClient): TaskResult {
+			$knnField = self::getKnnField($manticoreClient, $payload);
+			$queryVector = self::getQueryVectorValue($manticoreClient, $payload, $knnField);
+			return TaskResult::raw(self::getKnnResult($manticoreClient, $payload, $queryVector));
+		};
 
-        return Task::create(
-            $taskFn, [$this->payload, $this->manticoreClient]
-        )->run();
-    }
+		return Task::create(
+			$taskFn, [$this->payload, $this->manticoreClient]
+		)->run();
+	}
 
-    /**
-     * @throws ManticoreSearchClientError
-     * @throws ManticoreSearchResponseError
-     */
-    private function getKnnField(Client $manticoreClient, Payload $payload):string{
-        $descResult = $manticoreClient
-            ->sendRequest("DESC ".$payload->table)
-            ->getResult();
+	/**
+	 * @throws ManticoreSearchClientError
+	 * @throws ManticoreSearchResponseError
+	 */
+	private function getKnnField(Client $manticoreClient, Payload $payload):string {
+		$descResult = $manticoreClient
+			->sendRequest('DESC '.$payload->table)
+			->getResult();
 
-        $knnField = false;
+		$knnField = false;
 
-        if (is_array($descResult) && !empty($descResult[0]['data'])) {
-            foreach ($descResult[0]['data'] as $field) {
-                if ($field['Type'] === 'float_vector') {
-                    $knnField = $field['Field'];
-                }
-            }
+		if (!is_array($descResult) || empty($descResult[0]['data'])) {
+			throw ManticoreSearchClientError::create('Manticore didn\'t answer');
+		}
 
-            if (!$knnField) {
-                throw ManticoreSearchResponseError::create('Table '.$payload->table.' didnt have any KNN fields');
-            }
-        } else {
-            throw ManticoreSearchClientError::create('Manticore didn\'t answer');
-        }
+		foreach ($descResult[0]['data'] as $field) {
+			if ($field['Type'] !== 'float_vector') {
+				continue;
+			}
 
-        return $knnField;
-    }
+			$knnField = $field['Field'];
+		}
 
-    private function getQueryVectorValue(Client $manticoreClient, Payload $payload, string $knnField):string{
-        $document = $manticoreClient
-            ->sendRequest("SELECT * FROM ".$payload->table." WHERE id = ".$payload->docId)
-            ->getResult();
+		if (!$knnField) {
+			throw ManticoreSearchResponseError::create('Table '.$payload->table.' didnt have any KNN fields');
+		}
 
-        if (is_array($document) && !empty($document[0]['data'])) {
-            return $document[0]['data'][0][$knnField];
-        } else {
-            throw ManticoreSearchResponseError::create(
-                'Specified id ('.$payload->docId.') not found in table '.$payload->table
-            );
-        }
-    }
+		return $knnField;
+	}
+
+	private function getQueryVectorValue(Client $manticoreClient, Payload $payload, string $knnField):string {
+		$document = $manticoreClient
+			->sendRequest('SELECT * FROM '.$payload->table.' WHERE id = '.$payload->docId)
+			->getResult();
+
+		if (is_array($document) && !empty($document[0]['data'])) {
+			return $document[0]['data'][0][$knnField];
+		}
+
+		throw ManticoreSearchResponseError::create(
+			'Specified id ('.$payload->docId.') not found in table '.$payload->table
+		);
+	}
 
 
-    /**
-     * @param  Client  $manticoreClient
-     * @param  Payload  $payload
-     * @param  string  $queryVector
-     * @return array <string, string>
-     * @throws ManticoreSearchClientError
-     */
-    private function getKnnResult(Client $manticoreClient, Payload $payload, string $queryVector): array
-    {
-        $query = $payload->select."FROM ".$payload->table." WHERE knn (".$payload->field.", $payload->k, ($queryVector))";
-        $result = $manticoreClient
-            ->sendRequest($query)
-            ->getResult();
+	/**
+	 * @param  Client  $manticoreClient
+	 * @param  Payload  $payload
+	 * @param  string  $queryVector
+	 * @return array <string, string>
+	 * @throws ManticoreSearchClientError
+	 */
+	private function getKnnResult(Client $manticoreClient, Payload $payload, string $queryVector): array {
+		$query = $payload->select.'FROM '.$payload->table.' WHERE knn ('.$payload->field.", $payload->k, ($queryVector))";
+		$result = $manticoreClient
+			->sendRequest($query)
+			->getResult();
 
-        if (is_array($result[0])) {
-            foreach ($result[0]['data'] as $k => $v) {
-                if ($v['id'] === (int)$payload->docId) {
-                    unset($result[0]['data'][$k]);
-                }
-            }
-        }
+		if (is_array($result[0])) {
+			foreach ($result[0]['data'] as $k => $v) {
+				if ($v['id'] !== (int)$payload->docId) {
+					continue;
+				}
 
-        return $result;
-    }
+				unset($result[0]['data'][$k]);
+			}
+		}
+
+		return $result;
+	}
 }

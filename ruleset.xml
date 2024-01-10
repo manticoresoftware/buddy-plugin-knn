@@ -25,7 +25,7 @@
 	<rule ref="SlevomatCodingStandard.Functions.UnusedParameter"/>
 	<rule ref="SlevomatCodingStandard.Variables.UnusedVariable"/>
 	<rule ref="SlevomatCodingStandard.Variables.UselessVariable"/>
-		<rule ref="SlevomatCodingStandard.Namespaces.UnusedUses">
+	<rule ref="SlevomatCodingStandard.Namespaces.UnusedUses">
 		<properties>
 			<property name="searchAnnotations" value="true"/>
 		</properties>
@@ -38,7 +38,7 @@
 	<!-- <rule ref="SlevomatCodingStandard.TypeHints.DisallowMixedTypeHint"/> -->
 	<rule ref="SlevomatCodingStandard.PHP.TypeCast"/>
 	<rule ref="Squiz.Strings.DoubleQuoteUsage.NotRequired"/>
-		<rule ref="SlevomatCodingStandard.Complexity.Cognitive">
+	<rule ref="SlevomatCodingStandard.Complexity.Cognitive">
 		<properties>
 			<property name="maxComplexity" value="14"/>
 		</properties>
@@ -48,8 +48,8 @@
 		<exclude name="PSR1.Classes.ClassDeclaration.MissingNamespace"/>
 		<exclude name="Squiz.Functions.MultiLineFunctionDeclaration.BraceOnSameLine"/>
 		<exclude name="PSR2.Classes.ClassDeclaration"/>
-    <exclude name="PSR2.ControlStructures.SwitchDeclaration"/>
-   	<exclude name="PSR2.Methods.FunctionCallSignature"/>
+		<exclude name="PSR2.ControlStructures.SwitchDeclaration"/>
+		<exclude name="PSR2.Methods.FunctionCallSignature"/>
 		<exclude name="Generic.WhiteSpace.DisallowTabIndent"/>
 	</rule>
 	<rule ref="Generic.WhiteSpace.DisallowSpaceIndent"/>
@@ -64,33 +64,28 @@
 			<property name="requiredSpacesBeforeClose" value="0"/>
 		</properties>
 	</rule>
-	<rule ref="Generic.Arrays.ArrayIndent">
-		<properties>
-			<property name="tabIdent" value="true"/>
-		</properties>
-	</rule>
 
 	<rule ref="Generic.WhiteSpace.ScopeIndent">
 		<properties>
-			<property name="tabIdent" value="true"/>
+			<property name="tabIndent" value="true"/>
 		</properties>
 	</rule>
 
 	<rule ref="PSR2.Classes.ClassDeclaration">
 		<properties>
-			<property name="tabIdent" value="true"/>
+			<property name="tabIndent" value="true"/>
 		</properties>
 	</rule>
 
 	<rule ref="PSR2.ControlStructures.SwitchDeclaration">
 		<properties>
-			<property name="tabIdent" value="true"/>
+			<property name="tabIndent" value="true"/>
 		</properties>
 	</rule>
 
 	<rule ref="PSR2.Methods.FunctionCallSignature">
 		<properties>
-			<property name="tabIdent" value="true"/>
+			<property name="tabIndent" value="true"/>
 			<property name="requiredSpacesAfterOpen" value="1"/>
 			<property name="requiredSpacesBeforeClose" value="1"/>
 		</properties>
