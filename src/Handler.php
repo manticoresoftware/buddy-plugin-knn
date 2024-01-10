@@ -52,7 +52,7 @@ final class Handler extends BaseHandlerWithClient
 	 * @throws ManticoreSearchClientError
 	 * @throws ManticoreSearchResponseError
 	 */
-	private function getKnnField(Client $manticoreClient, Payload $payload):string {
+	private static function getKnnField(Client $manticoreClient, Payload $payload):string {
 		$descResult = $manticoreClient
 			->sendRequest('DESC '.$payload->table)
 			->getResult();
@@ -78,7 +78,7 @@ final class Handler extends BaseHandlerWithClient
 		return $knnField;
 	}
 
-	private function getQueryVectorValue(Client $manticoreClient, Payload $payload, string $knnField):string {
+	private static function getQueryVectorValue(Client $manticoreClient, Payload $payload, string $knnField):string {
 		$document = $manticoreClient
 			->sendRequest('SELECT * FROM '.$payload->table.' WHERE id = '.$payload->docId)
 			->getResult();
@@ -100,7 +100,7 @@ final class Handler extends BaseHandlerWithClient
 	 * @return array <string, string>
 	 * @throws ManticoreSearchClientError
 	 */
-	private function getKnnResult(Client $manticoreClient, Payload $payload, string $queryVector): array {
+	private static function getKnnResult(Client $manticoreClient, Payload $payload, string $queryVector): array {
 		$query = $payload->select.'FROM '.$payload->table.' WHERE '.
 			'knn ('.$payload->field.", $payload->k, ($queryVector))";
 
