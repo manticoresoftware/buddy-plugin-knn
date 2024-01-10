@@ -101,7 +101,9 @@ final class Handler extends BaseHandlerWithClient
 	 * @throws ManticoreSearchClientError
 	 */
 	private function getKnnResult(Client $manticoreClient, Payload $payload, string $queryVector): array {
-		$query = $payload->select.'FROM '.$payload->table.' WHERE knn ('.$payload->field.", $payload->k, ($queryVector))";
+		$query = $payload->select.'FROM '.$payload->table.' WHERE '.
+			'knn ('.$payload->field.", $payload->k, ($queryVector))";
+
 		$result = $manticoreClient
 			->sendRequest($query)
 			->getResult();
