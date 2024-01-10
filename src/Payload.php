@@ -40,6 +40,7 @@ final class Payload extends BasePayload
 		// If we need process this query as http request
 		if ($request->endpointBundle === Endpoint::Search) {
 			$self->select = 'SELECT id, knn_dist() ';
+
 			$payload = json_decode($request->payload, true);
 			if (is_array($payload)) {
 				$self->table = $payload['index'];
