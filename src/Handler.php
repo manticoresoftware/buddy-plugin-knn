@@ -40,6 +40,10 @@ final class Handler extends BaseHandlerWithClient
 		$taskFn = static function (Payload $payload, Client $manticoreClient): TaskResult {
 			$knnField = self::getKnnField($manticoreClient, $payload);
 			$queryVector = self::getQueryVectorValue($manticoreClient, $payload, $knnField);
+
+			if ($queryVector === false) {
+				return TaskResult::none();
+			}
 			return TaskResult::raw(self::getKnnResult($manticoreClient, $payload, $queryVector));
 		};
 
@@ -78,7 +82,7 @@ final class Handler extends BaseHandlerWithClient
 		return $knnField;
 	}
 
-	private static function getQueryVectorValue(Client $manticoreClient, Payload $payload, string $knnField):string {
+	private static function getQueryVectorValue(Client $manticoreClient, Payload $payload, string $knnField):string|false {
 		$document = $manticoreClient
 			->sendRequest('SELECT * FROM '.$payload->table.' WHERE id = '.$payload->docId)
 			->getResult();
@@ -87,9 +91,7 @@ final class Handler extends BaseHandlerWithClient
 			return $document[0]['data'][0][$knnField];
 		}
 
-		throw ManticoreSearchResponseError::create(
-			'Specified id ('.$payload->docId.') not found in table '.$payload->table
-		);
+		return false;
 	}
 
 
