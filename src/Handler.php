@@ -82,8 +82,8 @@ final class Handler extends BaseHandlerWithClient
 		return $knnField;
 	}
 
-	private static function getQueryVectorValue(Client $manticoreClient, Payload $payload, string $knnField):string|false {
-		$document = $manticoreClient
+	private static function getQueryVectorValue(Client $client, Payload $payload, string $knnField):string|false {
+		$document = $client
 			->sendRequest('SELECT * FROM '.$payload->table.' WHERE id = '.$payload->docId)
 			->getResult();
 
