@@ -26,7 +26,7 @@ final class Payload extends BasePayload
 	public ?string $k = null;
 	public ?string $docId = null;
 
-	public ?string $select = null;
+	public array $select = [];
 
 	public ?string $table = null;
 
@@ -39,10 +39,13 @@ final class Payload extends BasePayload
 
 		// If we need process this query as http request
 		if ($request->endpointBundle === Endpoint::Search) {
-			$self->select = 'SELECT id, knn_dist() ';
+			$self->select = ['id', 'knn_dist()'];
 
 			$payload = json_decode($request->payload, true);
 			if (is_array($payload)) {
+				if (isset($payload['_source'])) {
+					$self->select = $payload['_source'];
+				}
 				$self->table = $payload['index'];
 				$self->field = $payload['knn']['field'];
 				$self->k = (string)$payload['knn']['k'];
@@ -51,7 +54,11 @@ final class Payload extends BasePayload
 		} else {
 			$matches = $self::getMatches($request);
 
-			$self->select = $matches[1] ?? null;
+			$self->select = array_map(
+				function ($row) {
+					return trim($row);
+				}, explode(',', $matches[1] ?? '')
+			);
 			$self->table = $matches[2] ?? null;
 			$self->field = $matches[3] ?? null;
 			$self->k = $matches[4] ?? null;
@@ -85,7 +92,7 @@ final class Payload extends BasePayload
 	 * @return array<string>|bool
 	 */
 	private static function getMatches(Request $request): array|bool {
-		$pattern = '/^(.*)from\s+`*([a-z0-9_-]+)`*\s+.*?knn\s+\(\s*(.*)?\s*,\s*([0-9]+)\s*,\s*([0-9]+)\s*\)/usi';
+		$pattern = '/^select\s+(.*)from\s+`*([a-z0-9_-]+)`*\s+.*?knn\s+\(\s*(.*)?\s*,\s*([0-9]+)\s*,\s*([0-9]+)\s*\)/usi';
 		if (!preg_match($pattern, $request->payload, $matches)) {
 			return false;
 		}
