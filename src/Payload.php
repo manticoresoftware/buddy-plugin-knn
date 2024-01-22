@@ -96,7 +96,8 @@ final class Payload extends BasePayload
 	 * @return array<string>|bool
 	 */
 	private static function getMatches(Request $request): array|bool {
-		$pattern = '/^select\s+(.*)from\s+`*([a-z0-9_-]+)`*\s+.*?knn\s+\(\s*(.*)?\s*,\s*([0-9]+)\s*,\s*([0-9]+)\s*\)/usi';
+		$pattern = '/^select\s+(.*)from\s+`*([a-z0-9_-]+)`*\s+'.
+			'.*?knn\s+\(\s*(.*)?\s*,\s*([0-9]+)\s*,\s*([0-9]+)\s*\)/usi';
 		if (!preg_match($pattern, $request->payload, $matches)) {
 			return false;
 		}

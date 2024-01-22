@@ -105,52 +105,76 @@ final class Handler extends BaseHandlerWithClient
 	 */
 	private static function getKnnResult(Client $manticoreClient, Payload $payload, string $queryVector): array {
 		if ($payload->endpointBundle === Endpoint::Search) {
-			$query = [
-				'index' => $payload->table,
-				'knn' => [
-					'field' => $payload->field,
-					'k' => (int)$payload->k,
-					'query_vector' => array_map(
-						function ($val) {
-							return (float)$val;
-						}, explode(',', $queryVector)
-					),
-				],
-			];
+			return self::knnHttpQuery($manticoreClient, $payload, $queryVector);
+		}
 
-			if ($payload->select !== ['*']) {
-				$query['_source'] = $payload->select;
-			}
+		return self::knnSqlQuery($manticoreClient, $payload, $queryVector);
+	}
 
-			$result = $manticoreClient
-				->sendRequest((string)json_encode($query), Endpoint::Search->value)
-				->getResult();
+	/**
+	 * @param  Client  $manticoreClient
+	 * @param  Payload  $payload
+	 * @param  string  $queryVector
+	 * @return array <string, string>
+	 * @throws ManticoreSearchClientError
+	 */
+	private static function knnHttpQuery(Client $manticoreClient, Payload $payload, string $queryVector): array {
+		$query = [
+			'index' => $payload->table,
+			'knn' => [
+				'field' => $payload->field,
+				'k' => (int)$payload->k,
+				'query_vector' => array_map(
+					function ($val) {
+						return (float)$val;
+					}, explode(',', $queryVector)
+				),
+			],
+		];
 
-			if (is_array($result['hits']) && isset($result['hits']['hits'])) {
-				foreach ($result['hits']['hits'] as $k => $v) {
-					if ($v['_id'] !== $payload->docId) {
-						continue;
-					}
+		if ($payload->select !== ['*']) {
+			$query['_source'] = $payload->select;
+		}
 
-					unset($result['hits']['hits'][$k]);
+		$result = $manticoreClient
+			->sendRequest((string)json_encode($query), Endpoint::Search->value)
+			->getResult();
+
+		if (is_array($result['hits']) && isset($result['hits']['hits'])) {
+			foreach ($result['hits']['hits'] as $k => $v) {
+				if ($v['_id'] !== $payload->docId) {
+					continue;
 				}
+
+				unset($result['hits']['hits'][$k]);
 			}
-		} else {
-			$query = 'SELECT '.implode(',', $payload->select).' FROM '.$payload->table.' WHERE '.
-				'knn ('.$payload->field.", $payload->k, ($queryVector))";
+		}
 
-			$result = $manticoreClient
-				->sendRequest($query)
-				->getResult();
+		return $result;
+	}
 
-			if (is_array($result[0])) {
-				foreach ($result[0]['data'] as $k => $v) {
-					if ($v['id'] !== (int)$payload->docId) {
-						continue;
-					}
+	/**
+	 * @param  Client  $manticoreClient
+	 * @param  Payload  $payload
+	 * @param  string  $queryVector
+	 * @return array <string, string>
+	 * @throws ManticoreSearchClientError
+	 */
+	private static function knnSqlQuery(Client $manticoreClient, Payload $payload, string $queryVector): array {
+		$query = 'SELECT '.implode(',', $payload->select).' FROM '.$payload->table.' WHERE '.
+			'knn ('.$payload->field.", $payload->k, ($queryVector))";
 
-					unset($result[0]['data'][$k]);
+		$result = $manticoreClient
+			->sendRequest($query)
+			->getResult();
+
+		if (is_array($result[0])) {
+			foreach ($result[0]['data'] as $k => $v) {
+				if ($v['id'] !== (int)$payload->docId) {
+					continue;
 				}
+
+				unset($result[0]['data'][$k]);
 			}
 		}
 
