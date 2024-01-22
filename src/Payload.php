@@ -26,9 +26,12 @@ final class Payload extends BasePayload
 	public ?string $k = null;
 	public ?string $docId = null;
 
+	/** @var array<string> */
 	public array $select = [];
 
 	public ?string $table = null;
+
+	public Endpoint $endpointBundle;
 
 	/**
 	 * @param  Request  $request
@@ -37,8 +40,9 @@ final class Payload extends BasePayload
 	public static function fromRequest(Request $request): static {
 		$self = new static();
 
+		$self->endpointBundle = $request->endpointBundle;
 		// If we need process this query as http request
-		if ($request->endpointBundle === Endpoint::Search) {
+		if ($self->endpointBundle === Endpoint::Search) {
 			$self->select = ['id', 'knn_dist()'];
 
 			$payload = json_decode($request->payload, true);

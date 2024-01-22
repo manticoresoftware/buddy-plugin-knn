@@ -18,7 +18,6 @@ use Manticoresearch\Buddy\Core\ManticoreSearch\Endpoint;
 use Manticoresearch\Buddy\Core\Plugin\BaseHandlerWithClient;
 use Manticoresearch\Buddy\Core\Task\Task;
 use Manticoresearch\Buddy\Core\Task\TaskResult;
-use Manticoresearch\Buddy\Core\Tool\Buddy;
 use RuntimeException;
 
 final class Handler extends BaseHandlerWithClient
@@ -105,38 +104,55 @@ final class Handler extends BaseHandlerWithClient
 	 * @throws ManticoreSearchClientError
 	 */
 	private static function getKnnResult(Client $manticoreClient, Payload $payload, string $queryVector): array {
-		$query = [
-			'index' => $payload->table,
-			'knn' => [
-				'field' => $payload->field,
-				'k' => (int)$payload->k,
-				'query_vector' => array_map(
-					function ($val) {
-						return (float)$val;
-					}, explode(',', $queryVector)
-				),
-			],
-		];
+		if ($payload->endpointBundle === Endpoint::Search) {
+			$query = [
+				'index' => $payload->table,
+				'knn' => [
+					'field' => $payload->field,
+					'k' => (int)$payload->k,
+					'query_vector' => array_map(
+						function ($val) {
+							return (float)$val;
+						}, explode(',', $queryVector)
+					),
+				],
+			];
 
-		if ($payload->select !== ['*']) {
-			$query['_source'] = $payload->select;
-		}
+			if ($payload->select !== ['*']) {
+				$query['_source'] = $payload->select;
+			}
 
-		$result = $manticoreClient
-			->sendRequest(json_encode($query), Endpoint::Search->value)
-			->getResult();
+			$result = $manticoreClient
+				->sendRequest((string)json_encode($query), Endpoint::Search->value)
+				->getResult();
 
-		if (is_array($result['hits']['hits'])) {
-			foreach ($result['hits']['hits'] as $k => $v) {
-				if ($v['_id'] !== $payload->docId) {
-					continue;
+			if (is_array($result['hits']) && isset($result['hits']['hits'])) {
+				foreach ($result['hits']['hits'] as $k => $v) {
+					if ($v['_id'] !== $payload->docId) {
+						continue;
+					}
+
+					unset($result['hits']['hits'][$k]);
 				}
+			}
+		} else {
+			$query = 'SELECT '.implode(',', $payload->select).' FROM '.$payload->table.' WHERE '.
+				'knn ('.$payload->field.", $payload->k, ($queryVector))";
 
-				unset($result['hits']['hits'][$k]);
+			$result = $manticoreClient
+				->sendRequest($query)
+				->getResult();
+
+			if (is_array($result[0])) {
+				foreach ($result[0]['data'] as $k => $v) {
+					if ($v['id'] !== (int)$payload->docId) {
+						continue;
+					}
+
+					unset($result[0]['data'][$k]);
+				}
 			}
 		}
-
-		Buddy::debug(json_encode($result));
 
 		return $result;
 	}
